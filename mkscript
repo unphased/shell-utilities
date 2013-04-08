@@ -1,4 +1,4 @@
-#!/home/slu/.zsh/bin/zsh
+#!/usr/bin/env zsh
 
 # This is a shellscript generator that converts a history entry to a script
 # Usage: mkscript name_of_script history_index_of_command

@@ -7,6 +7,7 @@ set -e
 [[ ! -f .tmp_git_diff ]] && echo ".tmp_git_diff not found; i was probably invoked in error, aborting" && exit 1
 # diffing the current diff with the saved diff to see if we should re-show the git diff in tmux
 if ! git diff | diff - .tmp_git_diff > /dev/null; then
-	tmux send-keys -t git-diff-puppet q "git diff" enter
+	# the Ctrl+L here is for keeping the less output from drifting down on changes
+	tmux send-keys -t git-diff-puppet q C-l "git diff" enter
 	git diff > .tmp_git_diff
 fi

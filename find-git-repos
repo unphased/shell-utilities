@@ -5,9 +5,12 @@
 # hidden files/folders.
 set -e
 
+#incidentally, this is the script that showed me that homebrew actually sets the
+# /usr/local/ directory as a git repo. How crazy is that?
+
 IFS='
 '
-for repo in `find . -type d -name .git -print`; do
+for repo in `find . -type d -name .git -print 2>/dev/null`; do
 	(
 		cd $repo/..
 		stat=`git status --porcelain`

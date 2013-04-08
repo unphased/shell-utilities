@@ -1,0 +1,12 @@
+#!/bin/sh
+
+# This script is not for invoking directly. It is for use in conjunction (as a "callback") with
+# git-diff-puppet: this script will be looking for the .tmp_git_diff file
+set -e
+
+[[ ! -f .tmp_git_diff ]] && echo ".tmp_git_diff not found; i was probably invoked in error, aborting" && exit 1
+# diffing the current diff with the saved diff to see if we should re-show the git diff in tmux
+if ! git diff | diff - .tmp_git_diff > /dev/null; then
+	tmux send-keys -t git-diff-puppet q "git diff" enter
+	git diff > .tmp_git_diff
+fi

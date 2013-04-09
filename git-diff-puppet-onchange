@@ -8,6 +8,7 @@ set -e
 # diffing the current diff with the saved diff to see if we should re-show the git diff in tmux
 if ! git diff | diff - .tmp_git_diff > /dev/null; then
 	# the Ctrl+L here is for keeping the less output from drifting down on changes
-	tmux send-keys -t git-diff-puppet q C-l "git diff" enter
+	# the enter after q is to ensure it does not break when running on shell to start with 
+	tmux send-keys -t git-diff-puppet q enter C-l "{ git status && git diff }" enter
 	git diff > .tmp_git_diff
 fi

@@ -15,7 +15,8 @@ function cleanup {
 }
 trap cleanup EXIT
 tmux new-session -d -s git-diff-puppet sh
-tmux send-keys -t git-diff-puppet "git diff" enter
+# tmux send-keys -t git-diff-puppet "git diff" enter
+git-diff-puppet-onchange
 fswatch . ~/util/git-diff-puppet-onchange &
 FSWATCHPID=$!
 tmux attach -t git-diff-puppet

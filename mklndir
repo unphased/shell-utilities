@@ -1,0 +1,19 @@
+#!/bin/sh
+
+# This is a script which creates a directory in ~/link/ that contains a symlink to all paths specified.
+# Good for sharing/describing a set of paths that you can run programs over. 
+# Usage: mklndir path [more paths] name_of_dir
+set -e 
+# last arg must not be a path to anything, should be a name
+[[ ${@: -1} =~ / ]] && echo "dir name looks like a path!" && exit 1
+DIRPATH=~/link/${@: -1}
+# last arg must not already exist
+([[ -f "$DIRPATH" ]] || [[ -d "$DIRPATH" ]]) && echo "Directory or file named $DIRPATH already exists!" && exit 2
+mkdir $DIRPATH
+
+# this could work but i found a better way than this: 
+# echo "$@" | rev | cut -d' ' -f2- | rev 
+for file in ${@:1:($#-1)}
+do 
+	ln -s `readlink -f $file` $DIRPATH/`basename $file`
+done

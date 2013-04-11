@@ -1,0 +1,14 @@
+#!/usr/bin/env zsh
+
+# This is a shellscript generator that converts a history entry to a script
+# Usage: mkscript name_of_script history_index_of_command
+set -e
+[[ ! $2 =~ ^[0-9]+$ ]] && echo "Invalid 2nd arg" && exit 2
+[[ -f ~/bin/$1 ]] && echo "File $1 exists in ~/bin!" && exit 1
+export HISTFILE=~/.zsh_history
+fc -R
+echo "Setting up script named $1 which has been initialized with the command `fc -l $2 $2 | cut -d' ' -f4-`"
+echo "#!/usr/bin/env sh" > ~/bin/$1
+fc -l $2 $2 | cut -d' ' -f4- >> ~/bin/$1
+chmod +x ~/bin/$1
+rehash # get zsh to auto-complete our new script

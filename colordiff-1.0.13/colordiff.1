@@ -1,0 +1,199 @@
+'\" t
+.\"     Title: colordiff
+.\"    Author: Dave Ewart
+.\" Generator: DocBook XSL Stylesheets v1.75.2 <http://docbook.sf.net/>
+.\"      Date: 11/14/2012
+.\"    Manual: User Commands
+.\"    Source: colordiff
+.\"  Language: English
+.\"
+.TH "COLORDIFF" "1" "11/14/2012" "colordiff" "User Commands"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+colordiff \- a tool to colorize \fBdiff\fR output
+.SH "SYNOPSIS"
+.HP \w'\fBcolordiff\fR\ 'u
+\fBcolordiff\fR [\fIdiff\ options\fR] [\fIcolordiff\ options\fR] {\fIfile1\fR} {\fIfile2\fR}
+.SH "DESCRIPTION"
+.PP
+colordiff
+is a wrapper for
+\fBdiff\fR
+and produces the same output as
+\fBdiff\fR
+but with coloured syntax highlighting at the command line to improve readability\&. The output is similar to how a
+\fBdiff\fR\-generated patch might appear in
+Vim
+or
+Emacs
+with the appropriate syntax highlighting options enabled\&. The colour schemes can be read from a central configuration file or from a local user
+~/\&.colordiffrc
+file\&.
+.PP
+colordiff
+makes use of ANSI colours and as such will only work when ANSI colours can be used \- typical examples are xterms and Eterms, as well as console sessions\&.
+.PP
+colordiff
+has been tested on various flavours of Linux and under OpenBSD, but should be broadly portable to other systems\&.
+.SH "USAGE"
+.PP
+Use
+colordiff
+wherever you would normally use
+\fBdiff\fR, or instead pipe output to
+colordiff:
+.PP
+For example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+$ colordiff file1 file2
+$ diff \-u file1 file2 | colordiff
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+You can pipe the output to \*(Aqless\*(Aq, using the \*(Aq\-R\*(Aq option (some systems or terminal types may get better results using \*(Aq\-r\*(Aq instead), which keeps the colour escape sequences, otherwise displayed incorrectly or discarded by \*(Aqless\*(Aq:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+$ diff \-u file1 file2 | colordiff | less \-R
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+If you have
+\fBwdiff\fR
+installed, colordiff will correctly colourise the added and removed text, provided that the \*(Aq\-n\*(Aq option is given to
+\fBwdiff\fR:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+$ wdiff \-n file1 file2 | colordiff
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+You may find it useful to make
+\fBdiff\fR
+automatically call
+\fBcolordiff\fR\&. Add the following line to
+~/\&.bashrc
+(or equivalent):
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+alias diff=colordiff
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+Any options passed to
+colordiff
+are passed through to
+\fBdiff\fR
+except for the colordiff\-specific option \*(Aqdifftype\*(Aq, e\&.g\&.
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+colordiff \-\-difftype=debdiff file1 file2
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+Valid values for \*(Aqdifftype\*(Aq are: diff, diffc, diffu, diffy, wdiff, debdiff; these correspond to plain diffs, context diffs, unified diffs, side\-by\-side diffs, wdiff output and debdiff output respectively\&. Use these overrides when colordiff is not able to determine the diff\-type automatically\&.
+.PP
+Alternatively, a construct such as \*(Aqcvs diff SOMETHING | colordiff\*(Aq can be included in
+~/\&.bashrc
+as follows:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+function cvsdiff () { cvs diff $@ | colordiff; }
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+Or, combining the idea above using \*(Aqless\*(Aq:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+function cvsdiff () { cvs diff $@ | colordiff |less \-R; }
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+Note that the function name, cvsdiff, can be customized\&.
+.SH "FILES"
+.PP
+/etc/colordiffrc
+.RS 4
+Central configuration file\&. User\-specific settings can be enabled by copying this file to
+~/\&.colordiffrc
+and making the appropriate changes\&.
+.RE
+.PP
+colordiffrc\-lightbg
+.RS 4
+Alternate configuration template for use with terminals having light backgrounds\&. Copy this to /etc/colordiffrc or ~/\&.colordiffrc and customize\&.
+.RE
+.SH "BUGS"
+.PP
+Bug reports and suggestions/patches to
+davee@sungate\&.co\&.uk
+please\&.
+.SH "AUTHORS"
+.PP
+\fBDave Ewart\fR
+.RS 4
+colordiff author and Debian packager
+.RE
+.PP
+\fBGraham Wilson\fR
+.RS 4
+Manual page and XML source author
+.RE
+.PP
+\fBColin Tuckley\fR
+.RS 4
+Debian package sponsor
+.RE

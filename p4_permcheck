@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+
+find . \! -perm 444 -type f \! -perm 555 -type f | grep -v "\.git/"

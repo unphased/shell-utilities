@@ -13,9 +13,11 @@ IFS='
 for repo in `find . -type d -name .git -print 2>/dev/null`; do
 	(
 		cd $repo/..
+		git fetch
 		stat=`git status --porcelain`
 		if [[ "$stat" == "" ]]; then
 			echo "[32m$repo[0m"
+			git status | grep "behind" || true #don't care if ret false
 		else
 			for line in $stat; do
 				[[ ! $line =~ ^\?\? ]] && notallunk="1"

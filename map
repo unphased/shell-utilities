@@ -16,16 +16,20 @@ if ( $#ARGV >= 0 && grep ($ARGV[0] eq $_,("-h", "--help", "help"))) {
 	exit;
 }
 
-$#ARGV % 2 or die "Even number of args required.\n";
+# $#ARGV % 2 or die "Even number of args required.\n";
 
-$#ARGV >= 0 or warn "No args provided. Output should be identical to input.\n";
+# $#ARGV >= 0 or warn "No args provided. Output should be identical to input.\n";
 
 my $interactive = -t STDIN;
 
-my %mapping = @ARGV;
-my @mapkeys = keys %mapping;
+# my %mapping = @ARGV;
+# my @mapkeys = keys %mapping;
 
-warn @mapkeys;
+# warn @mapkeys;
+
+# testing pty here
+my $pty = IO::Pty::Easy->new;
+print "pty->spawn returns: ".$pty->spawn("@ARGV");
 
 my $i = undef;
 my $j = 0;
@@ -36,14 +40,22 @@ my $j = 0;
 		my $key = ReadKey(0);
 		last if !defined($key) || !$key;
 		my $code = ord($key); # this byte is...
-		if (!defined ($i)) {
+		# if (!defined ($i)) {
 			# begin search
-			for (;$j <= $#mapkeys; ++$j) {
+			# for (;$j <= $#mapkeys; ++$j) {
 				# print "$mapkeys[$j] is $mapping{$mapkeys[$j]}\n"
 
-			}
+			# }
+		# }
+		# printf("saw %s: \\x%02X\n", $key, $code);
+		if (my $from_pty = $pty->read(0)) {
+			print "read from pty: $from_pty";
+		} else {
+
 		}
-		printf("saw %s: \\x%02X\n", $key, $code);
+		if ($key eq "a") {
+			$pty->write("zzz"); print 'Saw "a", wrote "zzz" to pty';
+		} else { $pty->write($key); print 'Wrote to pty: $key'; }
 		if ($interactive and $code == 4) {
 			# User types Ctrl+D
 			last;

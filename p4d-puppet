@@ -4,22 +4,37 @@
 # interactively scroll it. 
 # and tmux is then used to issue commands to reload the diff.
 set -e
+set -x
 
-[[ -f .tmp_p4_diff ]] && echo "found .tmp_p4_diff, exiting" && exit -1
-# save the current git diff string to use for comparison
-p4d > .tmp_p4_diff
+[[ -f .tmp_p4_diff ]] && echo "found .tmp_p4_diff, exiting" && exit 1
+# save the current diff string to use for comparison
+p4 diff > .tmp_p4_diff
 
-
+# define cleanup callback
 function cleanup {
-	kill $FSWATCHPID
-	rm .tmp_git_diff
-	tmux kill-session -t git-diff-puppet
+	kill $INOTIFYWAITPID
+	rm .tmp_p4_diff
+	tmux kill-session -t p4-diff-puppet
 }
-trap cleanup EXIT
-tmux new-session -d -s git-diff-puppet sh
-# tmux send-keys -t git-diff-puppet "git diff" enter
-git-diff-puppet-onchange
-fswatch . ~/util/git-diff-puppet-onchange &
-FSWATCHPID=$!
-tmux attach -t git-diff-puppet
+trap cleanup EXIT # set it 
+
+# Start tmux session in current tmux pane
+tmux new-session -d -s p4-diff-puppet sh
+
+# run our onchange once to init stuff
+~/util/p4d-puppet-onchange
+
+# currently athena's codebase does not contain more than 8192 directories
+# we can therefore run inotifywait on a build root dir and it can watch all 
+# containing dirs for changes. 
+# Use this command to tell how many dirs are there: 
+# find ~/p4/builds/build_13.6 -type d | wc -l 
+# However, once we start wanting to monitor more files, or want to
+# use this script in a more efficient manner, we can use inotifywait's 
+# --fromfile option with a list of files obtained through munging
+# p4 diff. 
+
+inotifywait -m . ~/util/p4d-puppet-onchange &
+INOTIFYWAITPID=$!
+tmux attach -t p4-diff-puppet
 echo "tmux finished: puppet script exiting"

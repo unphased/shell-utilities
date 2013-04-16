@@ -3,14 +3,16 @@
 use strict;
 use warnings;
 
+use IO::Pty::Easy;
 use Term::ReadKey;
 ReadMode 4;
 END {
 	ReadMode 0; # Reset tty mode before exiting
 }
 
-if ($ARGV[0] ~~ ["h", "-h", "--help", "help"]) {
-	print "Usage: $0 (h|-h|--help|help)|(code_in codes_out [code_in codes_out]+)\nNote: output codes can be arbitrary length\n";
+if ( $#ARGV >= 0 && grep ($ARGV[0] eq $_,("-h", "--help", "help"))) {
+# if ($ARGV[0] ~~ ["h", "-h", "--help", "help"]) {
+	print "Usage: $0 (-h|--help|help)|(code_in codes_out [code_in codes_out]+)\nNote: output codes can be arbitrary length\n";
 	exit;
 }
 

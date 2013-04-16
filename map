@@ -3,48 +3,63 @@
 use strict;
 use warnings;
 
+use IO::Pty::Easy;
 use Term::ReadKey;
 ReadMode 4;
 END {
-	ReadMode 0; # Reset tty mode before exiting
+        ReadMode 0; # Reset tty mode before exiting
 }
 
-if ($ARGV[0] ~~ ["h", "-h", "--help", "help"]) {
-	print "Usage: $0 (h|-h|--help|help)|(code_in codes_out [code_in codes_out]+)\nNote: output codes can be arbitrary length\n";
-	exit;
+if ( $#ARGV >= 0 && grep ($ARGV[0] eq $_,("-h", "--help", "help"))) {
+# if ($ARGV[0] ~~ ["h", "-h", "--help", "help"]) {
+        print "Usage: $0 (-h|--help|help)|(code_in codes_out [code_in codes_out]+)\nNote: output codes can be arbitrary length\n";
+        exit;
 }
 
-$#ARGV % 2 or die "Even number of args required.\n";
+# $#ARGV % 2 or die "Even number of args required.\n";
 
-$#ARGV >= 0 or warn "No args provided. Output should be identical to input.\n";
+# $#ARGV >= 0 or warn "No args provided. Output should be identical to input.\n";
 
 my $interactive = -t STDIN;
 
-my %mapping = @ARGV;
-my @mapkeys = keys %mapping;
+# my %mapping = @ARGV;
+# my @mapkeys = keys %mapping;
 
-warn @mapkeys;
+# warn @mapkeys;
+
+# testing pty here
+my $pty = IO::Pty::Easy->new;
+print "pty->spawn returns: ".$pty->spawn("@ARGV");
 
 my $i = undef;
 my $j = 0;
 
 {
-	local $| = 1;
-	while (1) {
-		my $key = ReadKey(0);
-		last if !defined($key) || !$key;
-		my $code = ord($key); # this byte is...
-		if (!defined ($i)) {
-			# begin search
-			for (;$j <= $#mapkeys; ++$j) {
-				# print "$mapkeys[$j] is $mapping{$mapkeys[$j]}\n"
+        local $| = 1;
+        while (1) {
+                my $key = ReadKey(0);
+                last if !defined($key) || !$key;
+                my $code = ord($key); # this byte is...
+                # if (!defined ($i)) {
+                        # begin search
+                        # for (;$j <= $#mapkeys; ++$j) {
+                                # print "$mapkeys[$j] is $mapping{$mapkeys[$j]}\n"
 
-			}
-		}
-		printf("saw %s: \\x%02X\n", $key, $code);
-		if ($interactive and $code == 4) {
-			# User types Ctrl+D
-			last;
-		}
-	}
+                        # }
+                # }
+                # printf("saw %s: \\x%02X\n", $key, $code);
+                if (my $from_pty = $pty->read(0)) {
+                        print "read from pty: $from_pty";
+                } else {
+
+                }
+                if ($key eq "a") {
+                        $pty->write("zzz"); print 'Saw "a", wrote "zzz" to pty';
+                } else { $pty->write($key); print 'Wrote to pty: $key'; }
+                if ($interactive and $code == 4) {
+                        # User types Ctrl+D
+                        last;
+                }
+        }
 }
+

@@ -48,19 +48,28 @@ my $j = 0;
             # }
         # }
         # printf("saw %s: \\x%02X\n", $key, $code);
-        if (my $from_pty = $pty->read(0)) {
-            print "read from pty -->$from_pty<--\n";
-        } else {
-            if ($from_pty eq '') {
-                # empty means EOF means pty has exited, so I exit because my fate is sealed
-                exit 0;
-            }
-        }
+
+		# read out pty's activity
+		my $from_pty = $pty->read(0);
+		if (defined($from_pty)) {
+			if ($from_pty) {
+				print "read from pty -->$from_pty<--\n";
+			} else {
+				if ($from_pty eq '') {
+					# empty means EOF means pty has exited, so I exit because my fate is sealed
+					print STDERR "Got back from pty EOF, quitting\n"
+					exit 0;
+				}
+			}
+		}
+
+		# echo translated input to pty
         if ($key eq "a") {
             $pty->write("zzz"); print 'Saw "a", wrote "zzz" to pty';
         } else { $pty->write($key); print "Wrote to pty: $key"; }
         if ($interactive and $code == 4) {
             # User types Ctrl+D
+			print STDERR "Saw ^D from term, quitting\n"
             last;
         }
     }

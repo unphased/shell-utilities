@@ -7,13 +7,13 @@ use IO::Pty::Easy;
 use Term::ReadKey;
 ReadMode 4;
 END {
-	ReadMode 0; # Reset tty mode before exiting
+    ReadMode 0; # Reset tty mode before exiting
 }
 
 if ( $#ARGV >= 0 && grep ($ARGV[0] eq $_,("-h", "--help", "help"))) {
 # if ($ARGV[0] ~~ ["h", "-h", "--help", "help"]) {
-	print "Usage: $0 (-h|--help|help)|(code_in codes_out [code_in codes_out]+)\nNote: output codes can be arbitrary length\n";
-	exit;
+    print "Usage: $0 (-h|--help|help)|(code_in codes_out [code_in codes_out]+)\nNote: output codes can be arbitrary length\n";
+    exit;
 }
 
 # $#ARGV % 2 or die "Even number of args required.\n";
@@ -35,30 +35,34 @@ my $i = undef;
 my $j = 0;
 
 {
-	local $| = 1;
-	while (1) {
-		my $key = ReadKey(0);
-		last if !defined($key) || !$key;
-		my $code = ord($key); # this byte is...
-		# if (!defined ($i)) {
-			# begin search
-			# for (;$j <= $#mapkeys; ++$j) {
-				# print "$mapkeys[$j] is $mapping{$mapkeys[$j]}\n"
+    local $| = 1;
+    while (1) {
+        my $key = ReadKey(0);
+        last if !defined($key) || !$key;
+        my $code = ord($key); # this byte is...
+        # if (!defined ($i)) {
+            # begin search
+            # for (;$j <= $#mapkeys; ++$j) {
+                # print "$mapkeys[$j] is $mapping{$mapkeys[$j]}\n"
 
-			# }
-		# }
-		# printf("saw %s: \\x%02X\n", $key, $code);
-		if (my $from_pty = $pty->read(0)) {
-			print "read from pty: $from_pty";
-		} else {
-
-		}
-		if ($key eq "a") {
-			$pty->write("zzz"); print 'Saw "a", wrote "zzz" to pty';
-		} else { $pty->write($key); print 'Wrote to pty: $key'; }
-		if ($interactive and $code == 4) {
-			# User types Ctrl+D
-			last;
-		}
-	}
+            # }
+        # }
+        # printf("saw %s: \\x%02X\n", $key, $code);
+        if (my $from_pty = $pty->read(0)) {
+            print "read from pty -->$from_pty<--\n";
+        } else {
+            if ($from_pty eq '') {
+                # empty means EOF means pty has exited, so I exit because my fate is sealed
+                exit 0;
+            }
+        }
+        if ($key eq "a") {
+            $pty->write("zzz"); print 'Saw "a", wrote "zzz" to pty';
+        } else { $pty->write($key); print "Wrote to pty: $key"; }
+        if ($interactive and $code == 4) {
+            # User types Ctrl+D
+            last;
+        }
+    }
 }
+

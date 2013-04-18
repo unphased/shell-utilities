@@ -8,9 +8,14 @@ set -e
 #incidentally, this is the script that showed me that homebrew actually sets the
 # /usr/local/ directory as a git repo. How crazy is that?
 
+# TODO: keep a cache on the fs so that it can run through last-found repos quickly on start.
+# then after that it can go run the find to take as much time as it wants.
+
+DIR=${1:-'.'}
+
 IFS='
 '
-for repo in `find . -type d -name .git -print 2>/dev/null`; do
+for repo in `find $DIR -type d -name .git -print 2>/dev/null`; do
 	(
 		cd $repo/..
 		git fetch

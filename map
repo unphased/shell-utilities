@@ -28,7 +28,7 @@ my $interactive = -t STDIN;
 # warn @mapkeys;
 
 # testing pty here
-my $pty = IO::Pty::Easy->new;
+my $pty = IO::Pty::Easy->new(( raw => 0 ));
 print "pty->spawn returns: ".$pty->spawn("@ARGV");
 
 my $i = undef;
@@ -37,41 +37,42 @@ my $j = 0;
 {
     local $| = 1;
     while (1) {
-        my $key = ReadKey(0);
-        last if !defined($key) || !$key;
+        # read out pty's activity
+        my $from_pty = $pty->read(0.1);
+        if (defined($from_pty)) {
+            if ($from_pty) {
+                # print "read from pty -->$from_pty<--\n";
+                print $from_pty;
+            } else {
+                if ($from_pty eq '') {
+                    # empty means EOF means pty has exited, so I exit because my fate is sealed
+                    print STDERR "Got back from pty EOF, quitting\n";
+                    $pty->close();
+                    last;
+                }
+            }
+        }
+
+        my $key = ReadKey(0.1);
+        # last if !defined($key) || !$key;
+        next if !defined($key);
         my $code = ord($key); # this byte is...
-        # if (!defined ($i)) {
-            # begin search
-            # for (;$j <= $#mapkeys; ++$j) {
-                # print "$mapkeys[$j] is $mapping{$mapkeys[$j]}\n"
-
-            # }
-        # }
+        if ($interactive and $code == 4) {
+            # User types Ctrl+D
+            print STDERR "Saw ^D from term, quitting\n";
+            $pty->close();
+            last;
+        }
         # printf("saw %s: \\x%02X\n", $key, $code);
-
-		# read out pty's activity
-		my $from_pty = $pty->read(0);
-		if (defined($from_pty)) {
-			if ($from_pty) {
-				print "read from pty -->$from_pty<--\n";
-			} else {
-				if ($from_pty eq '') {
-					# empty means EOF means pty has exited, so I exit because my fate is sealed
-					print STDERR "Got back from pty EOF, quitting\n"
-					exit 0;
-				}
-			}
-		}
 
 		# echo translated input to pty
         if ($key eq "a") {
-            $pty->write("zzz"); print 'Saw "a", wrote "zzz" to pty';
-        } else { $pty->write($key); print "Wrote to pty: $key"; }
-        if ($interactive and $code == 4) {
-            # User types Ctrl+D
-			print STDERR "Saw ^D from term, quitting\n"
-            last;
+            $pty->write("zzz"); # print 'Saw "a", wrote "zzz" to pty';
+        } else {
+            $pty->write($key); # print "Wrote to pty: $key";
         }
+
+
     }
 }
 

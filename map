@@ -30,16 +30,18 @@ my $interactive = -t STDIN;
 
 # warn @mapkeys;
 if ($interactive) {
-    print "Spawning command in pty: @ARGV"
+    print "Spawning command in pty: @ARGV\n"
     # print "\nContinue? (y/n)";
     # my $y_n;
     # while (($y_n = <STDIN>) !~ /^(y|n)$/) {
     #     print '(y/n)';
     # }
     # exit if $y_n eq "n\n";
+} else {
+    print 'Not invoked from interactive terminal: Please use sed instead. Continuing.';
 }
 
-my $pty = IO::Pty::Easy->new();
+my $pty = IO::Pty::Easy->new((raw => !!$interactive));
 my $spawnret = $pty->spawn("@ARGV")."\n";
 
 print STDERR "Spawning has failed: @ARGV\n" if !$spawnret;
@@ -64,12 +66,13 @@ my $j = 0;
             my $code = ord($key); # this byte is...
             if ($interactive and $code == 4) {
                 # User types Ctrl+D
-                print STDERR "Saw ^D from term, quitting\n" if $interactive;
-                $pty->close();
+                print STDERR "Saw ^D from term, embarking on filicide with TERM signal\n";
+                $pty->kill("TERM", 0); # blocks till death of child
                 myread();
+                $pty->close();
                 last;
             }
-            # printf("saw %s: \\x%02X\n", $key, $code);
+            printf("saw %s: \\x%02X\n", $key, $code);
 
             # echo translated input to pty
             if ($key eq "a") {

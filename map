@@ -5,10 +5,7 @@ use warnings;
 
 use IO::Pty::Easy;
 use Term::ReadKey;
-ReadMode 4;
-END {
-    ReadMode 0; # Reset tty mode before exiting
-}
+use Encode;
 
 if ( $#ARGV >= 0 && grep ($ARGV[0] eq $_,("-h", "--help", "help"))) {
 # if ($ARGV[0] ~~ ["h", "-h", "--help", "help"]) {
@@ -16,9 +13,15 @@ if ( $#ARGV >= 0 && grep ($ARGV[0] eq $_,("-h", "--help", "help"))) {
     exit;
 }
 
-# $#ARGV % 2 or die "Even number of args required.\n";
+$#ARGV % 2 and die "Odd number of args required.\n";
 
-# $#ARGV >= 0 or warn "No args provided. Output should be identical to input.\n";
+if ($#ARGV == -1) {
+    warn ("No args provided. A command must be specified.\n");
+    exit 1;
+}
+
+# be sure to enter the command as a string
+my %mapping = @ARGV[-@ARGV..-2];
 
 my $interactive = -t STDIN;
 
@@ -26,13 +29,25 @@ my $interactive = -t STDIN;
 # my @mapkeys = keys %mapping;
 
 # warn @mapkeys;
-
-print "Spawning command in pty: @ARGV\n" if $interactive;
+if ($interactive) {
+    print "Spawning command in pty: @ARGV"
+    # print "\nContinue? (y/n)";
+    # my $y_n;
+    # while (($y_n = <STDIN>) !~ /^(y|n)$/) {
+    #     print '(y/n)';
+    # }
+    # exit if $y_n eq "n\n";
+}
 
 my $pty = IO::Pty::Easy->new();
 my $spawnret = $pty->spawn("@ARGV")."\n";
 
 print STDERR "Spawning has failed: @ARGV\n" if !$spawnret;
+
+ReadMode 4;
+END {
+    ReadMode 0; # Reset tty mode before exiting
+}
 
 my $i = undef;
 my $j = 0;
@@ -40,40 +55,46 @@ my $j = 0;
 {
     local $| = 1;
     while (1) {
-        # read out pty's activity
-        my $from_pty = $pty->read(0.1);
-        if (defined($from_pty)) {
-            if ($from_pty) {
-                # print "read from pty -->$from_pty<--\n";
-                print $from_pty;
-            } else {
-                if ($from_pty eq '') {
-                    # empty means EOF means pty has exited, so I exit because my fate is sealed
-                    print STDERR "Got back from pty EOF, quitting\n" if $interactive;
-                    $pty->close();
-                    last;
-                }
-            }
-        }
+        myread();
 
-        my $key = ReadKey(0.1);
+        # responsive to key input, and pty output may be behind by 50ms
+        my $key = ReadKey(0.05);
         # last if !defined($key) || !$key;
-        next if !defined($key);
-        my $code = ord($key); # this byte is...
-        if ($interactive and $code == 4) {
-            # User types Ctrl+D
-            print STDERR "Saw ^D from term, quitting\n" if $interactive;
-            $pty->close();
-            last;
-        }
-        # printf("saw %s: \\x%02X\n", $key, $code);
+        if (defined($key)) {
+            my $code = ord($key); # this byte is...
+            if ($interactive and $code == 4) {
+                # User types Ctrl+D
+                print STDERR "Saw ^D from term, quitting\n" if $interactive;
+                $pty->close();
+                myread();
+                last;
+            }
+            # printf("saw %s: \\x%02X\n", $key, $code);
 
-		# echo translated input to pty
-        if ($key eq "a") {
-            $pty->write("zzz"); # print 'Saw "a", wrote "zzz" to pty';
-        } else {
-            $pty->write($key); # print "Wrote to pty: $key";
+            # echo translated input to pty
+            if ($key eq "a") {
+                $pty->write("zzz"); # print 'Saw "a", wrote "zzz" to pty';
+            } else {
+                $pty->write($key); # print "Wrote to pty: $key";
+            }
         }
     }
 }
 
+sub myread {
+    # read out pty's activity to echo to stdout
+    my $from_pty = $pty->read(0);
+    if (defined($from_pty)) {
+        if ($from_pty) {
+            # print "read from pty -->$from_pty<--\n";
+            print $from_pty;
+        } else {
+            if ($from_pty eq '') {
+                # empty means EOF means pty has exited, so I exit because my fate is sealed
+                print STDERR "Got back from pty EOF, quitting\n" if $interactive;
+                $pty->close();
+                last;
+            }
+        }
+    }
+}

@@ -104,9 +104,9 @@ sub myread {
         } else {
             if ($from_pty eq '') {
                 # empty means EOF means pty has exited, so I exit because my fate is sealed
-                print STDERR "Got back from pty EOF, quitting\n" if $interactive;
+                print STDERR "Got EOF from $cmd; quitting\n" if $interactive;
                 $pty->close();
-                last;
+                exit;
             }
         }
     }

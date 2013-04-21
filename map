@@ -17,8 +17,8 @@ use Encode;
 #     exit;
 # }
 
-my $nomouse = grep '--nomouse' eq $_, @ARGV;
-@ARGV = grep ! '--nomouse', @ARGV;
+my $nomouse = grep /--nomouse/, @ARGV;
+@ARGV = grep ! /--nomouse/, @ARGV;
 
 $#ARGV % 2 and die "Odd number of args required.\n";
 
@@ -30,7 +30,7 @@ if ($#ARGV == -1) {
 # be sure to enter the command as a string
 my %mapping = @ARGV[-@ARGV..-2];
 
-my $cmd = @ARGV[$#ARGV];
+my $cmd = $ARGV[$#ARGV];
 
 my $interactive = -t STDIN;
 
@@ -74,9 +74,9 @@ my $j = 0;
         # last if !defined($key) || !$key;
         if (defined($key)) {
             my $code = ord($key); # this byte is...
-            if ($interactive and $code == 17) {
+            if ($interactive and $code == 4) {
                 # User types Ctrl+D
-                print STDERR "Saw ^Q from term, embarking on filicide with TERM signal\n";
+                print STDERR "Saw ^D from term, embarking on filicide with TERM signal\n";
                 $pty->kill("TERM", 0); # blocks till death of child
                 myread();
                 $pty->close();

@@ -1,5 +1,9 @@
 #!/usr/bin/env perl
 
+# This is an input mapper. I have (had?) it hardcoded for munging mouse scroll
+# to translate the escape codes from the terminal into keypresses.
+# It may be worthwhile to generalize the translation logic into args.
+
 use strict;
 use warnings;
 
@@ -7,11 +11,14 @@ use IO::Pty::Easy;
 use Term::ReadKey;
 use Encode;
 
-if ( $#ARGV >= 0 && grep ($ARGV[0] eq $_,("-h", "--help", "help"))) {
-# if ($ARGV[0] ~~ ["h", "-h", "--help", "help"]) {
-    print "Usage: $0 (-h|--help|help)|(code_in codes_out [code_in codes_out]+)\nNote: output codes can be arbitrary length\n";
-    exit;
-}
+# if ( $#ARGV >= 0 && grep ($ARGV[0] eq $_,("-h", "--help", "help"))) {
+# # if ($ARGV[0] ~~ ["h", "-h", "--help", "help"]) {
+#     print "Usage: $0 (-h|--help|help)|(code_in codes_out [code_in codes_out]* command)\nNote: codes can be arbitrary length strings\n";
+#     exit;
+# }
+
+my $nomouse = grep '--nomouse' eq $_, @ARGV;
+@ARGV = grep ! '--nomouse', @ARGV;
 
 $#ARGV % 2 and die "Odd number of args required.\n";
 
@@ -23,14 +30,15 @@ if ($#ARGV == -1) {
 # be sure to enter the command as a string
 my %mapping = @ARGV[-@ARGV..-2];
 
+my $cmd = @ARGV[$#ARGV];
+
 my $interactive = -t STDIN;
 
-# my %mapping = @ARGV;
-# my @mapkeys = keys %mapping;
+warn %mapping;
+warn @ARGV;
 
-# warn @mapkeys;
 if ($interactive) {
-    print "Spawning command in pty: @ARGV\n"
+    print "Spawning command in pty: $cmd\n"
     # print "\nContinue? (y/n)";
     # my $y_n;
     # while (($y_n = <STDIN>) !~ /^(y|n)$/) {
@@ -38,18 +46,20 @@ if ($interactive) {
     # }
     # exit if $y_n eq "n\n";
 } else {
-    print 'Not invoked from interactive terminal: Please use sed instead. Continuing.';
+    print 'map: Not invoked from interactive terminal: Please use sed instead. EOF handling will be bad. Continuing.';
 }
 
 my $pty = IO::Pty::Easy->new((raw => !!$interactive));
-my $spawnret = $pty->spawn("@ARGV")."\n";
+my $spawnret = $pty->spawn($cmd)."\n";
 
-print STDERR "Spawning has failed: @ARGV\n" if !$spawnret;
+print STDERR "Spawning has failed: $cmd\n" if !$spawnret;
 
 ReadMode 4;
 END {
     ReadMode 0; # Reset tty mode before exiting
+    print "\x1b[?1000l" if !$nomouse; # disable mouse mode
 }
+print "\x1b[?1000h" if !$nomouse; # enable mouse mode
 
 my $i = undef;
 my $j = 0;
@@ -64,9 +74,9 @@ my $j = 0;
         # last if !defined($key) || !$key;
         if (defined($key)) {
             my $code = ord($key); # this byte is...
-            if ($interactive and $code == 4) {
+            if ($interactive and $code == 17) {
                 # User types Ctrl+D
-                print STDERR "Saw ^D from term, embarking on filicide with TERM signal\n";
+                print STDERR "Saw ^Q from term, embarking on filicide with TERM signal\n";
                 $pty->kill("TERM", 0); # blocks till death of child
                 myread();
                 $pty->close();

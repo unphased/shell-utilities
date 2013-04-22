@@ -11,7 +11,7 @@ my $chunks = 0;
 
 qx/rm -v .tmp_split_patch_cumulative .tmp_spc_*/;
 
-while (<>) {
+while (<STDIN>) {
 	if (/^\d+(?:,\d+)?c\d+(?:,\d+)?$/) {
 		open(my $FILE, ">>.tmp_spc_$chunks");
 		print $FILE $diff;
@@ -24,3 +24,11 @@ while (<>) {
 open(my $FILE, ">>.tmp_split_patch_cumulative");
 print $FILE $diff;
 close($FILE);
+
+# Finished generating intermediate patches.
+
+# Back up the source file
+
+
+# Perform binary search over the hunks (as there is no way of knowing which hunks were made at what time chronologically)
+

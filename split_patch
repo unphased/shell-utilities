@@ -1,0 +1,36 @@
+#!/usr/bin/env perl -w
+
+use strict;
+
+# splits a diff (patch) into hunks, making an individual incremental diff for each hunk for use in automatic binary search
+# only works on old school diff format...
+
+$state = 'lookforhunk';
+$countrem = 0;
+$countadd = 0;
+
+while (<>) {
+	if ($state eq 'lookforhunk' {
+		my ($remstart,$remend,$addstart,$addend) =~ /^\d+(?:,\d+)?c\d+(?:,\d+)?$/);
+		if ($remend) {
+			$countrem = $remend - $remstart;
+		} else {
+			$countrem = 1;
+		}
+		if ($addend) {
+			$countadd = $addend - $addstart;
+		} else {
+			$countadd = 1;
+		}
+		$state = 'readdeletedlines'
+	}
+	elsif $state eq 'readdeletedlines' {
+
+	}
+	elsif $state eq 'readdividerline' {
+
+	}
+	elsif $state eq 'readinsertedlines' {
+
+	}
+}

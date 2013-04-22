@@ -36,16 +36,18 @@ my @cmd = @ARGV;
 
 my $interactive = -t STDIN;
 
-if ($interactive) {
-    print "Spawning command in pty: @cmd\n"
-    # print "\nContinue? (y/n)";
-    # my $y_n;
-    # while (($y_n = <STDIN>) !~ /^(y|n)$/) {
-    #     print '(y/n)';
-    # }
-    # exit if $y_n eq "n\n";
-} else {
-    print 'map: Not invoked from interactive terminal: Please use sed instead. EOF handling will be bad. Continuing.';
+print "Spawning command in pty: @cmd\n";
+
+# if ($interactive) {
+#     # print "\nContinue? (y/n)";
+#     # my $y_n;
+#     # while (($y_n = <STDIN>) !~ /^(y|n)$/) {
+#     #     print '(y/n)';
+#     # }
+#     # exit if $y_n eq "n\n";
+# }
+if (!$interactive) {
+    print "map: Not invoked from interactive terminal: Please use sed instead. EOF handling will be bad. Continuing.\n";
 }
 
 ReadMode 0;

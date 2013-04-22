@@ -1,77 +1,184 @@
 #!/usr/bin/env perl
 
+# This is an input mapper. I have (had?) it hardcoded for munging mouse scroll
+# to translate the escape codes from the terminal into keypresses.
+# It may be worthwhile to generalize the translation logic into args.
+# My use case is on `less` which responds very poorly to actual mouse escape
+# sequences. As a result I must cull *all* of them out.
+
 use strict;
 use warnings;
 
-use IO::Pty::Easy;
 use Term::ReadKey;
-ReadMode 4;
-END {
-    ReadMode 0; # Reset tty mode before exiting
+use IO::Pty::Easy;
+
+# if ( $#ARGV >= 0 && grep ($ARGV[0] eq $_,("-h", "--help", "help"))) {
+# # if ($ARGV[0] ~~ ["h", "-h", "--help", "help"]) {
+#     print "Usage: $0 (-h|--help|help)|(code_in codes_out [code_in codes_out]* command)\nNote: codes can be arbitrary length strings\n";
+#     exit;
+# }
+
+my $nomouse = grep /--nomouse/, @ARGV;
+@ARGV = grep ! /--nomouse/, @ARGV;
+
+# $#ARGV % 2 and die "Odd number of args required.\n";
+
+if ($#ARGV == -1) {
+    warn ("No args provided. A command must be specified.\n");
+    exit 1;
 }
 
-if ( $#ARGV >= 0 && grep ($ARGV[0] eq $_,("-h", "--help", "help"))) {
-# if ($ARGV[0] ~~ ["h", "-h", "--help", "help"]) {
-    print "Usage: $0 (-h|--help|help)|(code_in codes_out [code_in codes_out]+)\nNote: output codes can be arbitrary length\n";
-    exit;
-}
+# be sure to enter the command as a string
+# my %mapping = @ARGV[-@ARGV..-2];
 
-# $#ARGV % 2 or die "Even number of args required.\n";
-
-# $#ARGV >= 0 or warn "No args provided. Output should be identical to input.\n";
+# my $cmd = $ARGV[$#ARGV];
+my @cmd = @ARGV;
 
 my $interactive = -t STDIN;
 
-# my %mapping = @ARGV;
-# my @mapkeys = keys %mapping;
+print "Spawning command in pty: @cmd\n";
 
-# warn @mapkeys;
+# if ($interactive) {
+#     # print "\nContinue? (y/n)";
+#     # my $y_n;
+#     # while (($y_n = <STDIN>) !~ /^(y|n)$/) {
+#     #     print '(y/n)';
+#     # }
+#     # exit if $y_n eq "n\n";
+# }
+if (!$interactive) {
+    print "map: Not invoked from interactive terminal: Please use sed instead. EOF handling will be bad. Continuing.\n";
+}
 
-# testing pty here
-my $pty = IO::Pty::Easy->new;
-print "pty->spawn returns: ".$pty->spawn("@ARGV");
+ReadMode 0;
+ReadMode 4;
+END {
+    print "map exiting and cleaning up.";
+    print "\e[?1000l\e[?1005l" if !$nomouse; # disable mouse modes
+    ReadMode 0; # Reset tty mode before exiting
+}
+print "\e[?1005h\e[?1000h" if !$nomouse; # enable mouse mode and using UTF8
 
-my $i = undef;
-my $j = 0;
+
+my $pty = IO::Pty::Easy->new(raw => 1);
+my $spawnret = $pty->spawn(@cmd)."\n";
+
+print STDERR "Spawning has failed: @cmd\n" if !$spawnret;
 
 {
     local $| = 1;
-    while (1) {
-        my $key = ReadKey(0);
-        last if !defined($key) || !$key;
-        my $code = ord($key); # this byte is...
-        # if (!defined ($i)) {
-            # begin search
-            # for (;$j <= $#mapkeys; ++$j) {
-                # print "$mapkeys[$j] is $mapping{$mapkeys[$j]}\n"
+    my $state = 0;
+    while ($pty->is_active) {
+        myread();
+        # responsive to key input, and pty output may be behind by 50ms
+        my $key = ReadKey(0.03);
+        # last if !defined($key) || !$key;
+        if (defined($key)) {
+            my $code = ord($key); # this byte is...
+            if ($interactive and $code == 4) {
+                # User types Ctrl+D
+                print "\nSaw ^D from term, embarking on filicide with TERM signal\n";
+                $pty->kill("TERM", 0); # blocks till death of child
+                myread();
+                next;
+            }
+            #printf("saw %s: \\x%02X\n", $key, $code);
 
-            # }
-        # }
-        # printf("saw %s: \\x%02X\n", $key, $code);
+            if ($state >= 6) {
+                my $col = readUTF8($code);
+                my $row = readUTF8(ord(ReadKey(0.5)));
+                print ("Unmapped Mouse event at $col, $row\n");
+                $state = 0;
+            }
+            elsif ($state == 5) {
+                my $col = readUTF8($code);
+                my $row = readUTF8(ord(ReadKey(0.5)));
+                # print ("Read a scroll down at $col, $row\n");
+                $pty->write("5j");
+                $state = 0;
+            }
+            elsif ($state == 4) {
+                my $col = readUTF8($code);
+                my $row = readUTF8(ord(ReadKey(0.5)));
+                # print ("Read a scroll up at $col, $row\n");
+                $pty->write("5k");
+                $state = 0;
+            }
+            elsif ($state == 3) {
+                if ($code == 0x60) { # mwheel up
+                    $state = 4;
+                } elsif ($code == 0x61) { # mwheel down
+                    $state = 5;
+                } elsif ($code >= 0x20) {
+                    $state = 6+$code-0x20; # buttons bitmap stored into state
+                } else {
+                    $state = 0;
+                    # abort, not sure what's going on here (code afer \e[M but not >= 0x20)
+                }
+            }
+            elsif ($state == 2) {
+                if ($code == 0x4d) {
+                    $state = 3;
+                } else {
+                    $state = 0;
+                    # don't print the swallowed escape stuff?
+                    $pty->write("\e[$key");
+                }
+            }
+            elsif ($state == 1) {
+                if ($code == 0x5b) {
+                    $state = 2;
+                } else {
+                    $state = 0;
+                    # don't print the swallowed escape stuff?
+                    $pty->write("\e$key");
+                }
+            }
+            elsif ($state == 0) {
+                if ($code == 0x1b) {
+                    $state = 1;
+                } else {
+                    $pty->write($key);
+                }
+            }
+            # print "<$state>";
+        }
+    }
+    $pty->close;
+}
 
-		# read out pty's activity
-		my $from_pty = $pty->read(0);
-		if (defined($from_pty)) {
-			if ($from_pty) {
-				print "read from pty -->$from_pty<--\n";
-			} else {
-				if ($from_pty eq '') {
-					# empty means EOF means pty has exited, so I exit because my fate is sealed
-					print STDERR "Got back from pty EOF, quitting\n"
-					exit 0;
-				}
-			}
-		}
+sub readUTF8 {
+  my ($first) = @_;
+  if ($first <= 0x7F) {
+    return $first;
+  } elsif ($first >= 0xC2 && $first <= 0xDF) {
+    my $second = ord(ReadKey(0.5));
+    return (($first & 0x1F) << 6) | ($second & 0x3F);
+  } elsif ($first >= 0xE0 && $first <= 0xEF) {
+    my $second = ord(ReadKey(0.5));
+    my $third = ord(ReadKey(0.5));
+    return (($first & 0xF) << 12) | (($second & 0x3F) << 6) & ($third & 0x3F);
+  } elsif ($first >= 0xF0 && $first <= 0xF4) {
+    my $second = ord(ReadKey(0.5));
+    my $third = ord(ReadKey(0.5));
+    my $fourth = ord(ReadKey(0.5));
+    return (($first & 0x7) << 18) | (($second & 0x3F) << 12) & (($third & 0x3F) << 6) & ($fourth & 0x3F);
+  }
+}
 
-		# echo translated input to pty
-        if ($key eq "a") {
-            $pty->write("zzz"); print 'Saw "a", wrote "zzz" to pty';
-        } else { $pty->write($key); print "Wrote to pty: $key"; }
-        if ($interactive and $code == 4) {
-            # User types Ctrl+D
-			print STDERR "Saw ^D from term, quitting\n"
-            last;
+sub myread {
+    # read out pty's activity to echo to stdout
+    my $from_pty = $pty->read(0);
+    if (defined($from_pty)) {
+        if ($from_pty) {
+            # print "read from pty -->$from_pty<--\n";
+            print $from_pty;
+        } else {
+            if ($from_pty eq '') {
+                # empty means EOF means pty has exited, so I exit because my fate is sealed
+                print "Got EOF from @cmd\n" if $interactive;
+                return;
+            }
         }
     }
 }
-

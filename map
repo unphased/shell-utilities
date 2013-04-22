@@ -58,7 +58,7 @@ END {
 print "\e[?1005h\e[?1000h" if !$nomouse; # enable mouse mode and using UTF8
 
 
-my $pty = IO::Pty::Easy->new;
+my $pty = IO::Pty::Easy->new(raw => 1);
 my $spawnret = $pty->spawn(@cmd)."\n";
 
 print STDERR "Spawning has failed: @cmd\n" if !$spawnret;
@@ -80,9 +80,9 @@ print STDERR "Spawning has failed: @cmd\n" if !$spawnret;
                 myread();
                 next;
             }
-            printf("saw %s: \\x%02X\n", $key, $code);
+            #printf("saw %s: \\x%02X\n", $key, $code);
 
-            if ($state == 6) {
+            if ($state >= 6) {
                 my $col = readUTF8($code);
                 my $row = readUTF8(ord(ReadKey(0.5)));
                 print ("Unmapped Mouse event at $col, $row\n");
@@ -92,14 +92,14 @@ print STDERR "Spawning has failed: @cmd\n" if !$spawnret;
                 my $col = readUTF8($code);
                 my $row = readUTF8(ord(ReadKey(0.5)));
                 # print ("Read a scroll down at $col, $row\n");
-                $pty->write("\e[B");
+                $pty->write("5j");
                 $state = 0;
             }
             elsif ($state == 4) {
                 my $col = readUTF8($code);
                 my $row = readUTF8(ord(ReadKey(0.5)));
                 # print ("Read a scroll up at $col, $row\n");
-                $pty->write("\e[A");
+                $pty->write("5k");
                 $state = 0;
             }
             elsif ($state == 3) {
@@ -119,8 +119,8 @@ print STDERR "Spawning has failed: @cmd\n" if !$spawnret;
                     $state = 3;
                 } else {
                     $state = 0;
-                    # don't print the swallowed escape stuff
-                    # $pty->write("\e[$key");
+                    # don't print the swallowed escape stuff?
+                    $pty->write("\e[$key");
                 }
             }
             elsif ($state == 1) {
@@ -128,8 +128,8 @@ print STDERR "Spawning has failed: @cmd\n" if !$spawnret;
                     $state = 2;
                 } else {
                     $state = 0;
-                    # don't print the swallowed escape stuff
-                    # $pty->write("\e$key");
+                    # don't print the swallowed escape stuff?
+                    $pty->write("\e$key");
                 }
             }
             elsif ($state == 0) {
@@ -139,7 +139,7 @@ print STDERR "Spawning has failed: @cmd\n" if !$spawnret;
                     $pty->write($key);
                 }
             }
-            print "<$state>";
+            # print "<$state>";
         }
     }
     $pty->close;

@@ -7,9 +7,8 @@
 use strict;
 use warnings;
 
-use IO::Pty::Easy;
 use Term::ReadKey;
-use Encode;
+use IO::Pty::Easy;
 
 # if ( $#ARGV >= 0 && grep ($ARGV[0] eq $_,("-h", "--help", "help"))) {
 # # if ($ARGV[0] ~~ ["h", "-h", "--help", "help"]) {
@@ -20,7 +19,7 @@ use Encode;
 my $nomouse = grep /--nomouse/, @ARGV;
 @ARGV = grep ! /--nomouse/, @ARGV;
 
-$#ARGV % 2 and die "Odd number of args required.\n";
+# $#ARGV % 2 and die "Odd number of args required.\n";
 
 if ($#ARGV == -1) {
     warn ("No args provided. A command must be specified.\n");
@@ -28,17 +27,15 @@ if ($#ARGV == -1) {
 }
 
 # be sure to enter the command as a string
-my %mapping = @ARGV[-@ARGV..-2];
+# my %mapping = @ARGV[-@ARGV..-2];
 
-my $cmd = $ARGV[$#ARGV];
+# my $cmd = $ARGV[$#ARGV];
+my @cmd = @ARGV;
 
 my $interactive = -t STDIN;
 
-warn %mapping;
-warn @ARGV;
-
 if ($interactive) {
-    print "Spawning command in pty: $cmd\n"
+    print "Spawning command in pty: @cmd\n"
     # print "\nContinue? (y/n)";
     # my $y_n;
     # while (($y_n = <STDIN>) !~ /^(y|n)$/) {
@@ -50,48 +47,115 @@ if ($interactive) {
 }
 
 my $pty = IO::Pty::Easy->new((raw => !!$interactive));
-my $spawnret = $pty->spawn($cmd)."\n";
+my $spawnret = $pty->spawn(@cmd)."\n";
 
-print STDERR "Spawning has failed: $cmd\n" if !$spawnret;
+print STDERR "Spawning has failed: @cmd\n" if !$spawnret;
 
 ReadMode 4;
 END {
+    print "map exiting and cleaning up.";
     ReadMode 0; # Reset tty mode before exiting
-    print "\x1b[?1000l" if !$nomouse; # disable mouse mode
+    print "\e[?1000l\e[?1005l" if !$nomouse; # disable mouse modes
 }
-print "\x1b[?1000h" if !$nomouse; # enable mouse mode
+print "\e[?1005h\e[?1000h" if !$nomouse; # enable mouse mode and using UTF8
 
-my $i = undef;
-my $j = 0;
 
+exit;
 {
     local $| = 1;
+    my $state = 0;
     while (1) {
         myread();
-
         # responsive to key input, and pty output may be behind by 50ms
-        my $key = ReadKey(0.05);
+        my $key = ReadKey(0.03);
         # last if !defined($key) || !$key;
         if (defined($key)) {
             my $code = ord($key); # this byte is...
             if ($interactive and $code == 4) {
                 # User types Ctrl+D
-                print STDERR "Saw ^D from term, embarking on filicide with TERM signal\n";
+                print STDERR "\nSaw ^D from term, embarking on filicide with TERM signal\n";
                 $pty->kill("TERM", 0); # blocks till death of child
                 myread();
                 $pty->close();
                 last;
             }
-            printf("saw %s: \\x%02X\n", $key, $code);
+            # printf("saw %s: \\x%02X\n", $key, $code);
+
+            if ($state == 5) {
+                my $col = readUTF8($code);
+                my $row = readUTF8(ord(ReadKey(0.5)));
+                print ("Read a scroll down at $col, $row\n");
+                $state = 0;
+            }
+            if ($state == 4) {
+                my $col = readUTF8($code);
+                my $row = readUTF8(ord(ReadKey(0.5)));
+                print ("Read a scroll up at $col, $row\n");
+                $state = 0;
+            }
+            if ($state == 3) {
+                if ($code == 0x60) { # mwheel up
+                    $state = 4;
+                } elsif ($code == 0x61) { # mwheel down
+                    $state = 5;
+                } else {
+                    print "Read esc[M and then a $code";
+                    $pty->write("\e[M$key")
+                }
+            }
+            if ($state == 2) {
+                if ($code == 0x4d) {
+                    $state = 3;
+                } else {
+                    $state = 0;
+                    # print the swallowed stuff
+                    $pty->write("\e[$key");
+                }
+            }
+            if ($state == 1) {
+                if ($code == 0x5b) {
+                    $state = 2;
+                } else {
+                    $state = 0;
+                    # print the swallowed stuff
+                    $pty->write("\e$key");
+                }
+            }
+            if ($state == 0) {
+                if ($code == 0x1b) {
+                    $state = 1;
+                } else {
+                    $pty->write($key);
+                }
+            }
 
             # echo translated input to pty
-            if ($key eq "a") {
-                $pty->write("zzz"); # print 'Saw "a", wrote "zzz" to pty';
-            } else {
-                $pty->write($key); # print "Wrote to pty: $key";
-            }
+            # if ($key eq "a") {
+            #     $pty->write("zzz"); # print 'Saw "a", wrote "zzz" to pty';
+            # } else {
+            #     $pty->write($key); # print "Wrote to pty: $key";
+            # }
         }
     }
+}
+
+sub readUTF8 {
+  my ($first) = @_;
+  if ($first <= 0x7F) {
+    return $first;
+  } elsif ($first >= 0xC2 && $first <= 0xDF) {
+    my $second = ord(ReadKey(0.5));
+    return (($first & 0x1F) << 6) | ($second & 0x3F);
+  } elsif ($first >= 0xE0 && $first <= 0xEF) {
+    my $second = ord(ReadKey(0.5));
+    my $third = ord(ReadKey(0.5));
+    return (($first & 0xF) << 12) | (($second & 0x3F) << 6) & ($third & 0x3F);
+  } elsif ($first >= 0xF0 && $first <= 0xF4) {
+    my $second = ord(ReadKey(0.5));
+    my $third = ord(ReadKey(0.5));
+    my $fourth = ord(ReadKey(0.5));
+    return (($first & 0x7) << 18) | (($second & 0x3F) << 12) & (($third & 0x3F) << 6) & ($fourth & 0x3F);
+  }
 }
 
 sub myread {
@@ -104,7 +168,7 @@ sub myread {
         } else {
             if ($from_pty eq '') {
                 # empty means EOF means pty has exited, so I exit because my fate is sealed
-                print STDERR "Got EOF from $cmd; quitting\n" if $interactive;
+                print STDERR "Got EOF from @cmd; quitting\n" if $interactive;
                 $pty->close();
                 exit;
             }

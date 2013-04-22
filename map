@@ -3,6 +3,8 @@
 # This is an input mapper. I have (had?) it hardcoded for munging mouse scroll
 # to translate the escape codes from the terminal into keypresses.
 # It may be worthwhile to generalize the translation logic into args.
+# My use case is on `less` which responds very poorly to actual mouse escape
+# sequences. As a result I must cull *all* of them out.
 
 use strict;
 use warnings;
@@ -46,25 +48,25 @@ if ($interactive) {
     print 'map: Not invoked from interactive terminal: Please use sed instead. EOF handling will be bad. Continuing.';
 }
 
-my $pty = IO::Pty::Easy->new((raw => !!$interactive));
-my $spawnret = $pty->spawn(@cmd)."\n";
-
-print STDERR "Spawning has failed: @cmd\n" if !$spawnret;
-
+ReadMode 0;
 ReadMode 4;
 END {
     print "map exiting and cleaning up.";
-    ReadMode 0; # Reset tty mode before exiting
     print "\e[?1000l\e[?1005l" if !$nomouse; # disable mouse modes
+    ReadMode 0; # Reset tty mode before exiting
 }
 print "\e[?1005h\e[?1000h" if !$nomouse; # enable mouse mode and using UTF8
 
 
-exit;
+my $pty = IO::Pty::Easy->new;
+my $spawnret = $pty->spawn(@cmd)."\n";
+
+print STDERR "Spawning has failed: @cmd\n" if !$spawnret;
+
 {
     local $| = 1;
     my $state = 0;
-    while (1) {
+    while ($pty->is_active) {
         myread();
         # responsive to key input, and pty output may be behind by 50ms
         my $key = ReadKey(0.03);
@@ -73,70 +75,74 @@ exit;
             my $code = ord($key); # this byte is...
             if ($interactive and $code == 4) {
                 # User types Ctrl+D
-                print STDERR "\nSaw ^D from term, embarking on filicide with TERM signal\n";
+                print "\nSaw ^D from term, embarking on filicide with TERM signal\n";
                 $pty->kill("TERM", 0); # blocks till death of child
                 myread();
-                $pty->close();
-                last;
+                next;
             }
-            # printf("saw %s: \\x%02X\n", $key, $code);
+            printf("saw %s: \\x%02X\n", $key, $code);
 
-            if ($state == 5) {
+            if ($state == 6) {
                 my $col = readUTF8($code);
                 my $row = readUTF8(ord(ReadKey(0.5)));
-                print ("Read a scroll down at $col, $row\n");
+                print ("Unmapped Mouse event at $col, $row\n");
                 $state = 0;
             }
-            if ($state == 4) {
+            elsif ($state == 5) {
                 my $col = readUTF8($code);
                 my $row = readUTF8(ord(ReadKey(0.5)));
-                print ("Read a scroll up at $col, $row\n");
+                # print ("Read a scroll down at $col, $row\n");
+                $pty->write("\e[B");
                 $state = 0;
             }
-            if ($state == 3) {
+            elsif ($state == 4) {
+                my $col = readUTF8($code);
+                my $row = readUTF8(ord(ReadKey(0.5)));
+                # print ("Read a scroll up at $col, $row\n");
+                $pty->write("\e[A");
+                $state = 0;
+            }
+            elsif ($state == 3) {
                 if ($code == 0x60) { # mwheel up
                     $state = 4;
                 } elsif ($code == 0x61) { # mwheel down
                     $state = 5;
+                } elsif ($code >= 0x20) {
+                    $state = 6+$code-0x20; # buttons bitmap stored into state
                 } else {
-                    print "Read esc[M and then a $code";
-                    $pty->write("\e[M$key")
+                    $state = 0;
+                    # abort, not sure what's going on here (code afer \e[M but not >= 0x20)
                 }
             }
-            if ($state == 2) {
+            elsif ($state == 2) {
                 if ($code == 0x4d) {
                     $state = 3;
                 } else {
                     $state = 0;
-                    # print the swallowed stuff
-                    $pty->write("\e[$key");
+                    # don't print the swallowed escape stuff
+                    # $pty->write("\e[$key");
                 }
             }
-            if ($state == 1) {
+            elsif ($state == 1) {
                 if ($code == 0x5b) {
                     $state = 2;
                 } else {
                     $state = 0;
-                    # print the swallowed stuff
-                    $pty->write("\e$key");
+                    # don't print the swallowed escape stuff
+                    # $pty->write("\e$key");
                 }
             }
-            if ($state == 0) {
+            elsif ($state == 0) {
                 if ($code == 0x1b) {
                     $state = 1;
                 } else {
                     $pty->write($key);
                 }
             }
-
-            # echo translated input to pty
-            # if ($key eq "a") {
-            #     $pty->write("zzz"); # print 'Saw "a", wrote "zzz" to pty';
-            # } else {
-            #     $pty->write($key); # print "Wrote to pty: $key";
-            # }
+            print "<$state>";
         }
     }
+    $pty->close;
 }
 
 sub readUTF8 {
@@ -168,9 +174,8 @@ sub myread {
         } else {
             if ($from_pty eq '') {
                 # empty means EOF means pty has exited, so I exit because my fate is sealed
-                print STDERR "Got EOF from @cmd; quitting\n" if $interactive;
-                $pty->close();
-                exit;
+                print "Got EOF from @cmd\n" if $interactive;
+                return;
             }
         }
     }

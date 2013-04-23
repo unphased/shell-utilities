@@ -14,16 +14,22 @@ function cleanup {
 	tmux kill-session -t git-diff-puppet
 }
 trap cleanup EXIT
-tmux new-session -d -s git-diff-puppet sh
+
+# tmux new-session -d -s git-diff-puppet sh
 
 # here be some proof-of-concept key remapping that can be done through tmux.
 # tmux set terminal-overrides "*:kf8=\\033[15~,*:kf7=\\033[17~"
 # tmux bind -n F8 send-keys "<[]>"
 # tmux bind -n F7 send-keys "<{}>"
 
-tmux send-keys -t git-diff-puppet "echo \"testing this command\" && sleep 1" enter
-git-diff-puppet-onchange.sh load
+# tmux send-keys -t git-diff-puppet "echo \"testing this command\" && sleep 1" enter
+
+
 fswatch . ~/util/git-diff-puppet-onchange.sh &
 FSWATCHPID=$!
-tmux attach -t git-diff-puppet
-echo "tmux finished: puppet script exiting"
+# tmux attach -t git-diff-puppet
+
+while [[ git-diff-puppet-onchange.sh load ]]; do
+	echo "Edited file at `date`, updating";
+done
+echo "puppet script finished by manual intervention: exiting";

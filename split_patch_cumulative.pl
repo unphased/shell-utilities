@@ -8,7 +8,7 @@ use strict;
 
 my $diff = '';
 my $chunks = 0;
-
+qx{[[ ! -d ~/.tmp ]] && mkdir ~/.tmp}
 qx{rm ~/.tmp/.tmp*};
 
 while (<STDIN>) {

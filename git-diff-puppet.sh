@@ -25,12 +25,12 @@ FSWATCHPID=$!
 # tmux attach -t git-diff-puppet
 
 while git-diff-puppet-onchange.sh load; do
-	echo "Puppet: saw ret $?, reexecuting on $SHORTDIR at `date`, checking";
+	echo "Puppet: saw ret $?, reexecuting on $SHORTDIR at `date`, checking"
 done
-echo "Child errored. Puppet parent script for $SHORTDIR exiting";
+echo "Child errored. Puppet parent script for $SHORTDIR exiting"
 kill $FSWATCHPID
+rm "$TMPNAME"
 
 function cleanup {
-	rm "$TMPNAME"
 	tmux kill-window -t "git-diff-puppet:puppet-$SHORTDIR"
 }

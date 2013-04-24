@@ -6,6 +6,7 @@
 # Called with "load" argument when initialized by parent script, and called without any args
 # when invoked by the FS watcher.
 set -e
+set -x
 
 SHORTDIR=${PWD##*/}
 TMPNAME=".tmp_git_diff_$SHORTDIR"
@@ -25,9 +26,11 @@ if [[ $1 == "load" ]]; then
 	git diff > "$TMPNAME" # save diff for next comparison
 else # interrupt (files have potentially changed: quit tmux with no error to re-start
 	if ! git diff | diff - "$TMPNAME" > /dev/null; then
-		tmux kill-window -t "git-diff-puppet:puppet-$SHORTDIR" # kill the session (could just have it send q)
+		tmux kill-window -t "git-diff-puppet:puppet-$SHORTDIR" # kill the thing (could just have it send q)
 	else
 		# testing - doing something
 		echo "got a FS callback but not changed!"
 	fi # if not changed, do nothing
 fi
+
+echo "exiting onchg"

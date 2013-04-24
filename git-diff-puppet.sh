@@ -7,7 +7,8 @@ set -e
 
 SHORTDIR=${PWD##*/}
 TMPNAME=".tmp_git_diff_$SHORTDIR"
-[[ -f $TMPNAME ]] && echo "Found $TMPNAME, aborting" && exit -1
+[[ -f "$TMPNAME" ]] && echo "Found $TMPNAME, aborting" && exit -1
+
 # save the current git diff string to use for comparison
 git diff > "$TMPNAME"
 
@@ -20,11 +21,11 @@ git diff > "$TMPNAME"
 
 # tmux send-keys -t git-diff-puppet "echo \"testing this command\" && sleep 1" enter
 
-fswatch . ~/util/git-diff-puppet-onchange.sh &
+fswatch . ~/util/git-diff-puppet-onchange.sh refresh $1 &
 FSWATCHPID=$!
 # tmux attach -t git-diff-puppet
 
-while git-diff-puppet-onchange.sh load; do
+while git-diff-puppet-onchange.sh load $1; do
 	echo "Puppet: saw ret $?, reexecuting on $SHORTDIR at `date`, checking"
 done
 echo "Child errored. Puppet parent script for $SHORTDIR exiting"

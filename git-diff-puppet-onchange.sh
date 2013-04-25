@@ -32,7 +32,7 @@ if [[ $1 == "load" ]]; then
 else # refresh (files have potentially changed: quit tmux with no error to re-start
 	# diffing the current diff with the saved diff to see if we should re-show the git diff in tmux
 	if ! git diff | diff - "$TMPNAME" > /dev/null; then
-		tmux kill-window -t "git-diff-puppet:puppet-$SHORTDIR" # kill the thing (could just have it send q)
+		tmux kill-window -t "$SESSION:puppet-$SHORTDIR" # kill the thing (could just have it send q)
 	else
 		# testing - doing something
 		echo "got a FS callback but not changed!"

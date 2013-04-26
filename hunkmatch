@@ -1,0 +1,15 @@
+#!/usr/bin/env perl
+
+use warnings;
+use strict;
+
+my @hunks = ();
+# This analyzes unified diff output to find hunks that have changed
+# Modeled after diff-highlight; trades process inefficiency for encapsulation
+my $state = 0;
+while (<>) {
+    if ($state == 0 and $_ =~ /^@@/) {
+        $state = 1; # reading hunk beginning at next line
+    }
+    push(@hunks, []);
+}

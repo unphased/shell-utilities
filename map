@@ -82,7 +82,7 @@ print STDERR "Spawning has failed: @cmd\n" if !$spawnret;
                 myread();
                 next;
             }
-            #printf("saw %s: \\x%02X\n", $key, $code);
+            printf("saw %s: \\x%02X\n", $key, $code);
 
             if ($state >= 6) {
                 my $col = readUTF8($code);

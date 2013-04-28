@@ -5,11 +5,10 @@
 # and tmux is used to issue commands to reload the diff.
 set -e
 
-
-
 SHORTDIR=${PWD##*/}
 TMPNAME=".tmp_git_diff_$SHORTDIR"
-[[ -f "$TMPNAME" ]] && echo "Found $TMPNAME, aborting" && exit -1
+TMPDONE=".tmp_git_diff_done_$SHORTDIR"
+[[ -f "$TMPNAME" ]] && echo "Puppet: Found $TMPNAME, aborting" && exit -1
 
 # save the current git diff string to use for comparison
 git diff > "$TMPNAME"
@@ -17,6 +16,7 @@ git diff > "$TMPNAME"
 function cleanup {
 	kill $FSWATCHPID
 	rm "$TMPNAME"
+	rm "$TMPDONE"
 	# tmux kill-window -t "git-diff-puppet:puppet-$SHORTDIR"
 }
 trap cleanup EXIT
@@ -30,11 +30,13 @@ trap cleanup EXIT
 
 # tmux send-keys -t git-diff-puppet "echo \"testing this command\" && sleep 1" enter
 
-fswatch . ~/util/git-diff-puppet-onchange.sh refresh $1 &
+fswatch . "~/util/git-diff-puppet-onchange.sh refresh $1" &
 FSWATCHPID=$!
 # tmux attach -t git-diff-puppet
 
-while git-diff-puppet-onchange.sh load $1; do
+COUNT=0
+while git-diff-puppet-onchange.sh load $1 && [[ ! -f "$TMPDONE" ]] && [[ COUNT -lt 10 ]]; do
 	echo "Puppet: saw ret $?, reexecuting on $SHORTDIR at `date`, checking"
+	((COUNT++))
 done
-echo "Child errored. Puppet parent script for $SHORTDIR exiting"
+echo "Puppet: $SHORTDIR exiting"

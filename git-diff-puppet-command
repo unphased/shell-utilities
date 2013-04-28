@@ -1,0 +1,14 @@
+#!/bin/sh
+
+SHORTDIR=${PWD##*/}
+TMPDONE=".tmp_git_diff_done_$SHORTDIR"
+MSG='q to exit, r to force reload: '
+
+git diff | cat
+printf "$MSG"
+while read line
+do
+	printf "$MSG"
+	[[ $line = q ]] && touch "$TMPDONE" && break
+	[[ $line = r ]] && break
+done

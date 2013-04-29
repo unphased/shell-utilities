@@ -12,7 +12,6 @@ TMPNAME=".tmp_git_diff_$SHORTDIR"
 TMPDONE=".tmp_git_diff_done_$SHORTDIR"
 [[ -f "$TMPNAME" ]] && echo "Puppet: Found $TMPNAME, aborting" && exit -1
 
-# save the current git diff string to use for comparison
 git diff > "$TMPNAME"
 
 function cleanup {
@@ -23,21 +22,11 @@ function cleanup {
 }
 trap cleanup EXIT
 
-# tmux new-session -d -s git-diff-puppet sh
-
-# here be some proof-of-concept key remapping that can be done through tmux.
-# tmux set terminal-overrides "*:kf8=\\033[15~,*:kf7=\\033[17~"
-# tmux bind -n F8 send-keys "<[]>"
-# tmux bind -n F7 send-keys "<{}>"
-
-# tmux send-keys -t git-diff-puppet "echo \"testing this command\" && sleep 1" enter
-
 fswatch . "~/util/git-diff-puppet-onchange.sh refresh $1" &
 FSWATCHPID=$!
-# tmux attach -t git-diff-puppet
 
 COUNT=0
-while git-diff-puppet-onchange.sh load $1 && [[ ! -f "$TMPDONE" ]] && [[ COUNT -lt 100 ]]; do
+while git-diff-puppet-onchange.sh load $1 && [[ ! -f "$TMPDONE" ]] && [[ COUNT -lt 100000 ]]; do
     echo "Puppet: saw ret $?, reexecuting on $SHORTDIR at `date`, checking"
     ((COUNT++))
 done

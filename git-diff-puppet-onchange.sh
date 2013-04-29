@@ -9,6 +9,7 @@
 SHORTDIR=${PWD##*/}
 SHORTDIR=${SHORTDIR//./_dot_}
 SHORTDIR=${SHORTDIR//:/_colon_}
+
 TMPNAME=".tmp_git_diff_$SHORTDIR"
 SESSION="puppet-$SHORTDIR"
 [[ ! -f "$TMPNAME" ]] && echo "puppet-onchange.sh: $TMPNAME not found; i was probably invoked in error, aborting" && exit 1

@@ -6,7 +6,7 @@ SHORTDIR=${SHORTDIR//:/_colon_}
 TMPDONE=".tmp_git_diff_done_$SHORTDIR"
 MSG='q to exit, r to force reload: '
 
-git diff | cat
+git diff | diff-highlight | cat
 printf "$MSG"
 while read -n 1 line
 do

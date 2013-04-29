@@ -68,7 +68,7 @@ if [[ $1 = "load" ]]; then
 else # refresh (files have potentially changed: quit tmux with no error to re-start
     # diffing the current diff with the saved diff to see if we should re-show the git diff in tmux
     if ! git diff | diff - "$TMPNAME" > /dev/null; then
-        tmux send-keys -t "$SESSION" r
+        tmux send-keys -t "$SESSION" enter r #enter ensures exiting from copy mode
     # else
         # testing - doing something
         # echo "got a FS callback but not changed!"

@@ -6,6 +6,8 @@
 set -e
 
 SHORTDIR=${PWD##*/}
+SHORTDIR=${SHORTDIR//./_dot_}
+SHORTDIR=${SHORTDIR//:/_colon_}
 TMPNAME=".tmp_git_diff_$SHORTDIR"
 TMPDONE=".tmp_git_diff_done_$SHORTDIR"
 [[ -f "$TMPNAME" ]] && echo "Puppet: Found $TMPNAME, aborting" && exit -1
@@ -14,10 +16,10 @@ TMPDONE=".tmp_git_diff_done_$SHORTDIR"
 git diff > "$TMPNAME"
 
 function cleanup {
-	kill $FSWATCHPID
-	rm "$TMPNAME"
-	rm "$TMPDONE"
-	# tmux kill-window -t "git-diff-puppet:puppet-$SHORTDIR"
+    kill $FSWATCHPID
+    rm "$TMPNAME"
+    rm "$TMPDONE"
+    # tmux kill-window -t "git-diff-puppet:puppet-$SHORTDIR"
 }
 trap cleanup EXIT
 
@@ -35,8 +37,9 @@ FSWATCHPID=$!
 # tmux attach -t git-diff-puppet
 
 COUNT=0
-while git-diff-puppet-onchange.sh load $1 && [[ ! -f "$TMPDONE" ]] && [[ COUNT -lt 10 ]]; do
-	echo "Puppet: saw ret $?, reexecuting on $SHORTDIR at `date`, checking"
-	((COUNT++))
+while git-diff-puppet-onchange.sh load $1 && [[ ! -f "$TMPDONE" ]] && [[ COUNT -lt 100 ]]; do
+    echo "Puppet: saw ret $?, reexecuting on $SHORTDIR at `date`, checking"
+    ((COUNT++))
 done
+echo "COUNT is $COUNT"
 echo "Puppet: $SHORTDIR exiting"

@@ -3,13 +3,24 @@
 use warnings;
 use strict;
 
-my @hunks = ();
+my $HIGHLIGHT   = "\x1b[7m";
+my $UNHIGHLIGHT = "\x1b[27m";
+my $COLOR = qr/\x1b\[[0-9;]*m/;
+my $INNERDIFF = 'git diff --patience'
+
 # This analyzes unified diff output to find hunks that have changed
-# Modeled after diff-highlight; trades process inefficiency for encapsulation
+# Modeled after diff-highlight and should be used similarly
+my @hunks = ();
 my $state = 0;
+
 while (<>) {
-    if ($state == 0 and $_ =~ /^@@/) {
+    if ($state == 0 and $_ =~ /^$COLOR*@@/) {
         $state = 1; # reading hunk beginning at next line
     }
     push(@hunks, []);
 }
+
+# TODO: If possible, read out the target file and attempt to read that in. This is for detection of copied insertions. We can check our inserted hunk sections against existing file contents. This certainly should probably be "lower priority" than matching up "moved" hunks, though the degree of similarity should be taken into account.
+
+# The initial implementation does not do any comparison inside of the original or final files, and so can only reliably match for "changes" or "change-copies" (which are e.g. something taken out and placed in multiple times)
+

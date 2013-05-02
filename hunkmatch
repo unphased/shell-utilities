@@ -2,25 +2,53 @@
 
 use warnings;
 use strict;
+use DumperHarness
 
 my $HIGHLIGHT   = "\x1b[7m";
 my $UNHIGHLIGHT = "\x1b[27m";
 my $COLOR = qr/\x1b\[[0-9;]*m/;
-my $INNERDIFF = 'git diff --patience'
+my $RANGEre = qr/(\d+(,\d+)?)/;
+my $LOCATIONre = qr/^$COLOR*@@ -$RANGEre \+$RANGEre @@/;
+my $REMOVEre = qr/^$COLOR*-/;
+my $ADDre = qr/^$COLOR*\+/;
+my $INNERDIFF = $ARGV[0] || 'git diff --patience';
 
 # This analyzes unified diff output to find hunks that have changed
 # Modeled after diff-highlight and should be used similarly
 my @hunks = ();
+my @remove = ();
+my @add = ();
 my $state = 0;
 
 while (<>) {
-    if ($state == 0 and $_ =~ /^$COLOR*@@/) {
-        $state = 1; # reading hunk beginning at next line
+    chomp $_;
+    if ($state == 0 and /$RANGEre/) {
+        $state = 1; # reading file section beginning at next line
     }
-    push(@hunks, []);
+    elsif ($state == 1 and /$REMOVEre/) {
+        $state = 2; # found the start of a hunk (deleted lines)
+    }
+    elsif ($state == 2 and /$ADDre/) {
+        $state = 3; # found the added lines in this hunk
+    }
+    elsif ($state == 3 and $_ !~ /$ADDre/) {
+        $state = 0; # done with the hunk.
+        push(@hunks, [[@remove],[@add]]);
+        @remove = ();
+        @add = ();
+    }
+
+    if ($state == 2) {
+        push(@remove, $_);
+    }
+    if ($state == 3) {
+        push(@add, $_);
+    }
+    print STDERR ("$_; state is $state\n");
 }
+
+DumperHarness::Examine(\@hunks, "", 1);
 
 # TODO: If possible, read out the target file and attempt to read that in. This is for detection of copied insertions. We can check our inserted hunk sections against existing file contents. This certainly should probably be "lower priority" than matching up "moved" hunks, though the degree of similarity should be taken into account.
 
 # The initial implementation does not do any comparison inside of the original or final files, and so can only reliably match for "changes" or "change-copies" (which are e.g. something taken out and placed in multiple times)
-
